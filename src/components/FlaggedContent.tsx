@@ -14,6 +14,43 @@ type FlagLike = {
   dismissedBy: string | null;
 };
 
+const SEVERITY_RANK: Record<Severity, number> = { high: 2, medium: 1, low: 0 };
+
+type NumberedFlag = FlagLike & { number: number };
+
+type Segment = { text: string; flags: NumberedFlag[] };
+
+/**
+ * Splits `content` at every flag boundary rather than walking flags in
+ * order with a single cursor. A single cursor silently drops any flag whose
+ * span is nested inside (or overlaps) an earlier one — e.g. a narrow
+ * "14.99%" APR-term flag nested inside a broader "as low as 14.99%"
+ * representative-example flag — because its start falls behind the cursor
+ * already advanced by the outer flag. Splitting on the union of all
+ * start/end offsets means every flag gets its own sub-segment instead of
+ * being silently skipped.
+ */
+function buildSegments(content: string, sortedFlags: NumberedFlag[]): Segment[] {
+  if (sortedFlags.length === 0) return [{ text: content, flags: [] }];
+
+  const points = new Set<number>([0, content.length]);
+  for (const f of sortedFlags) {
+    points.add(Math.max(0, Math.min(f.startOffset, content.length)));
+    points.add(Math.max(0, Math.min(f.endOffset, content.length)));
+  }
+  const sortedPoints = [...points].sort((a, b) => a - b);
+
+  const segments: Segment[] = [];
+  for (let i = 0; i < sortedPoints.length - 1; i++) {
+    const start = sortedPoints[i];
+    const end = sortedPoints[i + 1];
+    if (start === end) continue;
+    const covering = sortedFlags.filter((f) => f.startOffset <= start && f.endOffset >= end);
+    segments.push({ text: content.slice(start, end), flags: covering });
+  }
+  return segments;
+}
+
 /**
  * Renders `content` with each flag's span highlighted inline (numbered to
  * match the list below), then lists every flag with its regulation and
@@ -22,45 +59,41 @@ type FlagLike = {
  * still show they were caught and ruled on.
  */
 export function FlaggedContent({ content, flags }: { content: string; flags: FlagLike[] }) {
-  const sorted = [...flags].sort((a, b) => a.startOffset - b.startOffset);
+  const sorted: NumberedFlag[] = [...flags]
+    .sort((a, b) => a.startOffset - b.startOffset)
+    .map((flag, i) => ({ ...flag, number: i + 1 }));
 
-  const segments: { text: string; flag?: FlagLike; index?: number }[] = [];
-  let cursor = 0;
-  sorted.forEach((flag, i) => {
-    if (flag.startOffset < cursor || flag.endOffset > content.length) return;
-    if (flag.startOffset > cursor) {
-      segments.push({ text: content.slice(cursor, flag.startOffset) });
-    }
-    segments.push({
-      text: content.slice(flag.startOffset, flag.endOffset),
-      flag,
-      index: i + 1,
-    });
-    cursor = flag.endOffset;
-  });
-  if (cursor < content.length) {
-    segments.push({ text: content.slice(cursor) });
-  }
+  const segments = buildSegments(content, sorted);
 
   return (
     <div className="space-y-4">
       <p className="whitespace-pre-wrap rounded-lg border border-black/10 bg-white p-4 leading-7 dark:border-white/10 dark:bg-zinc-900">
-        {segments.map((seg, i) =>
-          seg.flag ? (
+        {segments.map((seg, i) => {
+          if (seg.flags.length === 0) return <span key={i}>{seg.text}</span>;
+
+          const active = seg.flags.filter((f) => !f.dismissed);
+          const allDismissed = active.length === 0;
+          const relevant = active.length > 0 ? active : seg.flags;
+          const severity = relevant.reduce<Severity>(
+            (worst, f) => (SEVERITY_RANK[f.severity] > SEVERITY_RANK[worst] ? f.severity : worst),
+            relevant[0].severity
+          );
+          const title = seg.flags.map((f) => f.message).join("\n");
+          const numbers = seg.flags.map((f) => f.number).join(",");
+
+          return (
             <mark
               key={i}
-              className={`rounded px-0.5 ${SEVERITY_MARK_CLASSES[seg.flag.severity]} ${
-                seg.flag.dismissed ? "opacity-40" : ""
+              className={`rounded px-0.5 ${
+                allDismissed ? "opacity-40" : SEVERITY_MARK_CLASSES[severity]
               }`}
-              title={seg.flag.message}
+              title={title}
             >
               {seg.text}
-              <sup className="ml-0.5 font-sans font-semibold">{seg.index}</sup>
+              <sup className="ml-0.5 font-sans font-semibold">{numbers}</sup>
             </mark>
-          ) : (
-            <span key={i}>{seg.text}</span>
-          )
-        )}
+          );
+        })}
       </p>
 
       {sorted.length === 0 ? (

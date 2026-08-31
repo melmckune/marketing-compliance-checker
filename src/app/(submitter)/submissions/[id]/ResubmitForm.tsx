@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { resubmitAction, type ResubmitState } from "./actions";
 
 const initialState: ResubmitState = { errors: {}, values: {} };
@@ -18,9 +18,13 @@ export function ResubmitForm({
   const action = resubmitAction.bind(null, submissionId);
   const [state, formAction, pending] = useActionState(action, initialState);
 
-  useEffect(() => {
+  // Collapse the form back to the summary view the render after a
+  // successful resubmit, without an effect (react.dev/learn/you-might-not-need-an-effect).
+  const [handledSuccess, setHandledSuccess] = useState(state.success);
+  if (state.success !== handledSuccess) {
+    setHandledSuccess(state.success);
     if (state.success) setIsOpen(false);
-  }, [state.success]);
+  }
 
   if (!isOpen) {
     return (

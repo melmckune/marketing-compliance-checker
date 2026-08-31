@@ -40,7 +40,11 @@ export async function resubmitAction(
     changeSummary: values.changeSummary || null,
   });
 
+  // A resubmit puts this submission back in front of the reviewer, both in
+  // their queue and on this specific item's review view.
   revalidatePath(`/submissions/${submissionId}`);
   revalidatePath("/submissions");
+  revalidatePath("/reviewer");
+  revalidatePath(`/reviewer/${submissionId}`);
   return { errors: {}, values: {}, success: true };
 }

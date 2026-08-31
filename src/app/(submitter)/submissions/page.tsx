@@ -9,6 +9,12 @@ import {
   STATUS_LABELS,
 } from "@/lib/labels";
 
+// Live operational view — never serve a stale build-time snapshot. (Same
+// pitfall as /reviewer: a plain async DB fetch with no dynamic APIs gets
+// statically prerendered by default, so revalidatePath is the only thing
+// keeping it fresh unless this is forced.)
+export const dynamic = "force-dynamic";
+
 export default async function MySubmissionsPage() {
   const mySubmissions = await listMySubmissions();
 

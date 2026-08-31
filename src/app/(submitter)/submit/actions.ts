@@ -59,6 +59,8 @@ export async function submitNewAsset(
     affiliateName: values.source === "affiliate" ? values.affiliateName : null,
   });
 
+  // A new submission lands directly in the reviewer's queue.
   revalidatePath("/submissions");
+  revalidatePath("/reviewer");
   redirect(`/submissions/${submission.id}`);
 }

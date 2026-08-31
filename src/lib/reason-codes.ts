@@ -30,5 +30,3 @@ export const DISMISS_REASON_CODES = [
   { id: "duplicate_flag", label: "Duplicate of another flag" },
   { id: "compliance_pre_approved_exception", label: "Pre-approved exception on file" },
 ] as const;
-
-export const CURRENT_REVIEWER = "compliance-analyst@clearpathfinancial.com";

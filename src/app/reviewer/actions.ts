@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { flags, reviews, submissions } from "@/db/schema";
-import { CURRENT_REVIEWER } from "@/lib/reason-codes";
+import { CURRENT_REVIEWER } from "@/lib/current-user";
 
 export async function decideSubmission(formData: FormData) {
   const submissionId = Number(formData.get("submissionId"));
@@ -35,7 +35,12 @@ export async function decideSubmission(formData: FormData) {
     .set({ status: decision, updatedAt: new Date() })
     .where(eq(submissions.id, submissionId));
 
+  // The submitter's list/detail views show status and reviewer feedback for
+  // this same submission, so a decision here has to invalidate both roles'
+  // cached views of it, not just the reviewer's own queue.
   revalidatePath("/reviewer");
+  revalidatePath("/submissions");
+  revalidatePath(`/submissions/${submissionId}`);
   redirect("/reviewer");
 }
 
@@ -58,6 +63,9 @@ export async function dismissFlag(formData: FormData) {
     })
     .where(eq(flags.id, flagId));
 
+  // A dismissed flag also changes what the submitter sees on their own
+  // detail view of this submission.
   revalidatePath(`/reviewer/${submissionId}`);
   revalidatePath("/reviewer");
+  revalidatePath(`/submissions/${submissionId}`);
 }
