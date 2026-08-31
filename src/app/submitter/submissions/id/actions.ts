@@ -41,10 +41,12 @@ export async function resubmitAction(
   });
 
   // A resubmit puts this submission back in front of the reviewer, both in
-  // their queue and on this specific item's review view.
-  revalidatePath(`/submissions/${submissionId}`);
-  revalidatePath("/submissions");
+  // their queue and on this specific item's review view. Both detail routes
+  // are single static paths now (id is a query param), so one call each
+  // covers every submission, not just this one.
+  revalidatePath("/submitter/submissions/id");
+  revalidatePath("/submitter/submissions");
   revalidatePath("/reviewer");
-  revalidatePath(`/reviewer/${submissionId}`);
+  revalidatePath("/reviewer/id");
   return { errors: {}, values: {}, success: true };
 }

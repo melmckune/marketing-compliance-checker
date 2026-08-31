@@ -4,6 +4,16 @@ import { submissions, submissionVersions, flags, reviews } from "./schema";
 import { SUBMISSIONS } from "./seed-data";
 import { runRules } from "../rules";
 
+const NOW = new Date();
+
+function daysBefore(days: number): Date {
+  return new Date(NOW.getTime() - days * 24 * 60 * 60 * 1000);
+}
+
+function hoursAfter(date: Date, hours: number): Date {
+  return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}
+
 async function seed() {
   console.log("Clearing existing data...");
   await db.delete(reviews);
@@ -13,6 +23,16 @@ async function seed() {
 
   for (const def of SUBMISSIONS) {
     const lastVersion = def.versions[def.versions.length - 1];
+    const firstVersionCreatedAt = daysBefore(def.versions[0].daysAgo);
+
+    // Latest touch on this submission: the last version's creation, or its
+    // review's decision if that landed later.
+    const lastVersionCreatedAt = daysBefore(lastVersion.daysAgo);
+    const lastReviewCreatedAt = lastVersion.review
+      ? hoursAfter(lastVersionCreatedAt, lastVersion.review.lagHours)
+      : lastVersionCreatedAt;
+    const updatedAt =
+      lastReviewCreatedAt > lastVersionCreatedAt ? lastReviewCreatedAt : lastVersionCreatedAt;
 
     const [submission] = await db
       .insert(submissions)
@@ -26,12 +46,15 @@ async function seed() {
         status: def.status,
         submittedBy: def.submittedBy,
         currentVersion: def.versions.length,
+        createdAt: firstVersionCreatedAt,
+        updatedAt,
       })
       .returning();
 
     for (let i = 0; i < def.versions.length; i++) {
       const versionDef = def.versions[i];
       const versionNumber = i + 1;
+      const versionCreatedAt = daysBefore(versionDef.daysAgo);
 
       const [version] = await db
         .insert(submissionVersions)
@@ -42,6 +65,7 @@ async function seed() {
           content: versionDef.content,
           changeSummary: versionDef.changeSummary,
           createdBy: versionDef.createdBy,
+          createdAt: versionCreatedAt,
         })
         .returning();
 
@@ -53,6 +77,9 @@ async function seed() {
       // with a matching ruleId. Track consumption so a stale/typo'd ruleId
       // in seed data fails loudly instead of silently doing nothing.
       const pendingDismissals = [...(versionDef.dismissFlags ?? [])];
+      const dismissedAt = versionDef.review
+        ? hoursAfter(versionCreatedAt, versionDef.review.lagHours)
+        : versionCreatedAt;
 
       if (engineFlags.length > 0) {
         await db.insert(flags).values(
@@ -77,7 +104,8 @@ async function seed() {
               dismissed: Boolean(dismissal),
               dismissedReason: dismissal?.reason,
               dismissedBy: dismissal?.by,
-              dismissedAt: dismissal ? new Date() : undefined,
+              dismissedAt: dismissal ? dismissedAt : undefined,
+              createdAt: versionCreatedAt,
             };
           })
         );
@@ -99,6 +127,7 @@ async function seed() {
           decision: versionDef.review.decision,
           reasonCodes: versionDef.review.reasonCodes,
           notes: versionDef.review.notes,
+          createdAt: hoursAfter(versionCreatedAt, versionDef.review.lagHours),
         });
       }
     }

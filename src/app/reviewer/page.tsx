@@ -102,7 +102,7 @@ function QueueTable({
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link
-                      href={`/reviewer/${s.id}`}
+                      href={`/reviewer/id?id=${s.id}`}
                       className="font-medium text-blue-600 hover:underline dark:text-blue-400"
                     >
                       Review →

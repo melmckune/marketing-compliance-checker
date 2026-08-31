@@ -3,13 +3,7 @@ import { DISMISS_REASON_CODES } from "@/lib/reason-codes";
 import type { SubmissionForReview } from "@/db/queries";
 import { dismissFlag } from "../actions";
 
-export function FlagList({
-  flags,
-  submissionId,
-}: {
-  flags: SubmissionForReview["flags"];
-  submissionId: number;
-}) {
+export function FlagList({ flags }: { flags: SubmissionForReview["flags"] }) {
   if (flags.length === 0) {
     return (
       <p className="text-sm text-slate-500 dark:text-slate-400">No flags on this version.</p>
@@ -49,7 +43,6 @@ export function FlagList({
           ) : (
             <form action={dismissFlag} className="mt-3 flex flex-wrap items-center gap-2">
               <input type="hidden" name="flagId" value={f.id} />
-              <input type="hidden" name="submissionId" value={submissionId} />
               <select
                 name="reasonCode"
                 required

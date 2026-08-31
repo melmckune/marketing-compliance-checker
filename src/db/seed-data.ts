@@ -14,6 +14,8 @@ export type ReviewDef = {
   decision: "approved" | "rejected" | "changes_requested";
   reasonCodes: string[];
   notes?: string;
+  /** Hours after this version's createdAt that the decision landed — the tool's actual turnaround. */
+  lagHours: number;
 };
 
 export type DismissSpec = {
@@ -30,6 +32,13 @@ export type VersionDef = {
   createdBy: string;
   dismissFlags?: DismissSpec[];
   review?: ReviewDef;
+  /**
+   * How many days before seed time this version was created. Backdated
+   * (rather than defaulting to "now") so the dashboard's time-to-decision
+   * and queue-age metrics reflect a realistic spread instead of every
+   * submission having been created in the same instant the seed script ran.
+   */
+  daysAgo: number;
 };
 
 export type SubmissionDef = {
@@ -61,6 +70,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "Spring Personal Loan Refresh - Email Blast",
         createdBy: "jordan.ruiz@clearpathfinancial.com",
+        daysAgo: 12,
         content:
           "Need extra breathing room this spring? ClearPath Financial personal loans offer fixed monthly payments and no prepayment penalty. Rates and terms vary based on creditworthiness and loan amount; see your personalized offer after a soft credit check that won't affect your score. Apply online in minutes and get a decision the same day. Equal Opportunity Lender.",
         review: {
@@ -68,6 +78,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
           decision: "approved",
           reasonCodes: ["meets_disclosure_requirements"],
           notes: "Clean copy, no triggering terms, no prohibited claims.",
+          lagHours: 5,
         },
       },
     ],
@@ -85,6 +96,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "HomeStart Mortgage Prequalification Landing Page",
         createdBy: "priya.shah@clearpathfinancial.com",
+        daysAgo: 11,
         content:
           "Thinking about buying a home? Get prequalified with ClearPath Financial in minutes. Prequalification is not a commitment to lend and does not guarantee final loan approval; your actual rate and terms depend on a full underwriting review of your credit, income, and the property. ClearPath Financial, NMLS ID #1234567. Equal Housing Lender.",
         review: {
@@ -92,6 +104,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
           decision: "approved",
           reasonCodes: ["meets_disclosure_requirements"],
           notes: "NMLS ID and Equal Housing Lender present, prequal caveat is clear.",
+          lagHours: 3,
         },
       },
     ],
@@ -110,6 +123,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "Cardholder Rewards Social Post - Q3",
         createdBy: "marcus.lee@clearpathfinancial.com",
+        daysAgo: 2,
         content:
           "Introducing the ClearPath Rewards Card. Rates as low as 14.99% for qualified applicants. Earn 2% cash back on every purchase, no annual fee. Terms and conditions apply.",
         review: {
@@ -118,6 +132,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
           reasonCodes: ["missing_representative_example", "missing_apr_disclosure"],
           notes:
             "Rate claim needs the 'Annual Percentage Rate' term and a representative example before this can run.",
+          lagHours: 6,
         },
       },
     ],
@@ -137,6 +152,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "Affiliate Email Draft — QuickApprove Partners",
         createdBy: "priya.shah@clearpathfinancial.com",
+        daysAgo: 10,
         content:
           "GUARANTEED APPROVAL! Rates as low as 5.99% — pre-approved, no credit check! Apply now, this offer won't last. Get your cash today.",
         review: {
@@ -150,11 +166,13 @@ export const SUBMISSIONS: SubmissionDef[] = [
           ],
           notes:
             "Multiple issues — guaranteed approval, missing APR terminology and representative example, unsupported pre-approved/no-credit-check claims, and urgency language. Needs a full rewrite before resubmission.",
+          lagHours: 8,
         },
       },
       {
         title: "Affiliate Email — QuickApprove Partners (Revised)",
         createdBy: "priya.shah@clearpathfinancial.com",
+        daysAgo: 7,
         changeSummary:
           "Removed guaranteed/pre-approved/no-credit-check language, added the required APR term and a representative example, removed urgency language.",
         content:
@@ -164,6 +182,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
           decision: "approved",
           reasonCodes: ["resubmission_addressed_prior_flags"],
           notes: "All prior issues resolved. Approved.",
+          lagHours: 4,
         },
       },
     ],
@@ -181,6 +200,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "BridgeHome Mortgage Landing Page Refresh",
         createdBy: "priya.shah@clearpathfinancial.com",
+        daysAgo: 6,
         content:
           "Get prequalified for your dream home with ClearPath Financial. Competitive rates, fast decisions, and a simple online application. Start your prequalification today — no obligation.",
         review: {
@@ -192,6 +212,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
           ],
           notes:
             "Mortgage ads must always carry Equal Housing Lender + NMLS ID. Please add and resubmit.",
+          lagHours: 12,
         },
       },
     ],
@@ -209,6 +230,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "Display Banner — Rate Increase Countdown",
         createdBy: "marcus.lee@clearpathfinancial.com",
+        daysAgo: 1,
         content:
           "Lock in your rate before it's too late! ClearPath Financial personal loans — apply now and get funded as soon as tomorrow. Limited time offer.",
       },
@@ -227,6 +249,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "Pre-Qualified Email Campaign",
         createdBy: "jordan.ruiz@clearpathfinancial.com",
+        daysAgo: 5,
         content:
           "You're pre-qualified to check your rate for the ClearPath Rewards Card with no impact to your credit score. Apply now or come back anytime — approval is subject to full underwriting and your final rate depends on creditworthiness.",
         dismissFlags: [
@@ -243,6 +266,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
           reasonCodes: ["meets_disclosure_requirements"],
           notes:
             "Flagged urgency language reviewed and dismissed — copy explicitly offers a no-pressure alternative, so it doesn't function as a pressure tactic.",
+          lagHours: 2,
         },
       },
     ],
@@ -261,6 +285,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "CardConnect Prescreened Offer Email",
         createdBy: "priya.shah@clearpathfinancial.com",
+        daysAgo: 3,
         content:
           "Because of your excellent credit history, you've been selected for this prescreened offer for the ClearPath Rewards Card with a 0% introductory APR for 12 months. Respond by the date on the enclosed letter.",
         review: {
@@ -273,6 +298,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
           ],
           notes:
             "Add the FCRA prescreen opt-out notice, and spell out 'Annual Percentage Rate' before resubmitting.",
+          lagHours: 10,
         },
       },
     ],
@@ -290,12 +316,14 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "BrightPath Personal Loan Landing Page",
         createdBy: "priya.shah@clearpathfinancial.com",
+        daysAgo: 9,
         content:
           "Compare personal loan options from ClearPath Financial. Checking your rate uses a soft credit pull and won't affect your credit score. Your actual rate, term, and payment depend on your credit profile and are shown before you accept any offer. ClearPath Financial is an Equal Opportunity Lender.",
         review: {
           reviewer: ANALYST,
           decision: "approved",
           reasonCodes: ["meets_disclosure_requirements"],
+          lagHours: 1,
         },
       },
     ],
@@ -313,6 +341,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "GovHome Connect Mortgage Social Ad",
         createdBy: "priya.shah@clearpathfinancial.com",
+        daysAgo: 4,
         content:
           "Check your eligibility for this official government home buyer assistance program, offered through ClearPath Financial. Get connected with a government-backed rate today.",
         review: {
@@ -325,6 +354,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
           ],
           notes:
             "Multiple Reg N violations — implied government affiliation and missing required mortgage disclosures. Reject and escalate to affiliate manager.",
+          lagHours: 7,
         },
       },
     ],
@@ -341,6 +371,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "Print Insert — Rewards Card",
         createdBy: "marcus.lee@clearpathfinancial.com",
+        daysAgo: 6,
         content:
           "The ClearPath Rewards Card offers unbeatable rates and the best rewards program on the market, guaranteed. Terms and conditions apply.",
       },
@@ -359,6 +390,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
       {
         title: "Personal Loan Email — Payment Callout",
         createdBy: "jordan.ruiz@clearpathfinancial.com",
+        daysAgo: 8,
         content:
           "Get a ClearPath Financial personal loan with monthly payments as low as $199. Apply today and get funded fast.",
         review: {
@@ -367,11 +399,13 @@ export const SUBMISSIONS: SubmissionDef[] = [
           reasonCodes: ["missing_apr_disclosure", "reg_z_triggering_terms"],
           notes:
             "Payment amount stated without required Reg Z disclosures. Add repayment terms and APR.",
+          lagHours: 6,
         },
       },
       {
         title: "Personal Loan Email — Payment Callout (Revised)",
         createdBy: "jordan.ruiz@clearpathfinancial.com",
+        daysAgo: 6,
         changeSummary:
           "Added representative example with loan amount, APR, and repayment term per compliance feedback.",
         content:
@@ -381,6 +415,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
           decision: "approved",
           reasonCodes: ["resubmission_addressed_prior_flags"],
           notes: "Reg Z disclosures now present. Approved.",
+          lagHours: 3,
         },
       },
     ],

@@ -11,10 +11,17 @@ import {
 } from "@/lib/labels";
 import { ResubmitForm } from "./ResubmitForm";
 
-export default async function SubmissionDetailPage(props: PageProps<"/submissions/[id]">) {
-  const { id } = await props.params;
+// This folder is named `id`, not `[id]` — a deliberate choice to avoid a
+// Next.js dynamic path segment — so the submission id travels as a `?id=`
+// query param instead of a path param.
+export default async function SubmissionDetailPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ id?: string }>;
+}) {
+  const { id } = await searchParams;
   const submissionId = Number(id);
-  if (!Number.isInteger(submissionId)) notFound();
+  if (!id || !Number.isInteger(submissionId)) notFound();
 
   const submission = await getSubmissionDetail(submissionId);
   if (!submission) notFound();

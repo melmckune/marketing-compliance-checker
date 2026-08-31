@@ -6,7 +6,8 @@ import { DecisionForm } from "./decision-form";
 import { FlagList } from "./flag-list";
 import { HighlightedContent } from "./highlighted-content";
 
-// Live operational view — never serve a stale build-time snapshot.
+// Reading searchParams already opts this route out of static rendering, but
+// force-dynamic is kept explicit — see the same note on reviewer/page.tsx.
 export const dynamic = "force-dynamic";
 
 const PRODUCT_LABELS: Record<string, string> = {
@@ -17,14 +18,17 @@ const PRODUCT_LABELS: Record<string, string> = {
 
 const NEEDS_DECISION = new Set(["pending", "in_review"]);
 
+// This folder is named `id`, not `[id]` — a deliberate choice to avoid a
+// Next.js dynamic path segment — so the submission id travels as a
+// `?id=` query param instead of a path param, via searchParams.
 export default async function ReviewPage({
-  params,
+  searchParams,
 }: {
-  params: Promise<{ id: string }>;
+  searchParams: Promise<{ id?: string }>;
 }) {
-  const { id } = await params;
+  const { id } = await searchParams;
   const submissionId = Number(id);
-  if (!Number.isFinite(submissionId)) notFound();
+  if (!id || !Number.isFinite(submissionId)) notFound();
 
   const result = await getSubmissionForReview(submissionId);
   if (!result) notFound();
@@ -66,7 +70,7 @@ export default async function ReviewPage({
           Flags ({flags.length})
         </h2>
         <div className="mt-3">
-          <FlagList flags={flags} submissionId={submission.id} />
+          <FlagList flags={flags} />
         </div>
       </section>
 

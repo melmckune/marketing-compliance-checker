@@ -15,6 +15,9 @@ export default function ReviewerLayout({ children }: { children: React.ReactNode
             <Link href="/reviewer" className="hover:underline">
               Queue
             </Link>
+            <Link href="/reviewer/dashboard" className="hover:underline">
+              Dashboard
+            </Link>
           </nav>
           <span className="text-xs text-slate-500 dark:text-slate-400">{CURRENT_REVIEWER}</span>
         </div>

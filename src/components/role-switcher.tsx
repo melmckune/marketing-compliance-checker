@@ -9,14 +9,15 @@ import { usePathname } from "next/navigation";
 export function RoleSwitcher() {
   const pathname = usePathname();
   const isReviewer = pathname.startsWith("/reviewer");
-  const isSubmitter = pathname.startsWith("/submissions") || pathname.startsWith("/submit");
+  const isSubmitter =
+    pathname.startsWith("/submitter/submissions") || pathname.startsWith("/submitter/submit");
 
   return (
     <div className="flex items-center gap-0.5 rounded-full border border-slate-200 p-0.5 text-xs font-medium dark:border-slate-700">
       <RoleLink href="/reviewer" active={isReviewer}>
         Reviewer
       </RoleLink>
-      <RoleLink href="/submissions" active={isSubmitter}>
+      <RoleLink href="/submitter/submissions" active={isSubmitter}>
         Submitter
       </RoleLink>
     </div>

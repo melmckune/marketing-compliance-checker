@@ -23,7 +23,7 @@ export default async function MySubmissionsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">My Submissions</h1>
         <Link
-          href="/submit"
+          href="/submitter/submit"
           className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
         >
           New Submission
@@ -32,7 +32,7 @@ export default async function MySubmissionsPage() {
 
       {mySubmissions.length === 0 ? (
         <p className="mt-8 text-sm text-zinc-500 dark:text-zinc-400">
-          No submissions yet. <Link href="/submit" className="underline">Submit your first asset</Link>.
+          No submissions yet. <Link href="/submitter/submit" className="underline">Submit your first asset</Link>.
         </p>
       ) : (
         <ul className="mt-6 divide-y divide-black/10 dark:divide-white/10">
@@ -44,7 +44,7 @@ export default async function MySubmissionsPage() {
             return (
               <li key={s.id}>
                 <Link
-                  href={`/submissions/${s.id}`}
+                  href={`/submitter/submissions/id?id=${s.id}`}
                   className="flex items-center justify-between gap-4 py-4 hover:bg-black/[.02] dark:hover:bg-white/[.03]"
                 >
                   <div className="min-w-0">

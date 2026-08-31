@@ -60,7 +60,7 @@ export async function submitNewAsset(
   });
 
   // A new submission lands directly in the reviewer's queue.
-  revalidatePath("/submissions");
+  revalidatePath("/submitter/submissions");
   revalidatePath("/reviewer");
-  redirect(`/submissions/${submission.id}`);
+  redirect(`/submitter/submissions/id?id=${submission.id}`);
 }

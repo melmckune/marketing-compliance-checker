@@ -37,16 +37,17 @@ export async function decideSubmission(formData: FormData) {
 
   // The submitter's list/detail views show status and reviewer feedback for
   // this same submission, so a decision here has to invalidate both roles'
-  // cached views of it, not just the reviewer's own queue.
+  // cached views of it, not just the reviewer's own queue. /submissions/id
+  // is a single static path (the submission id is a ?id= query param, not a
+  // path segment), so there's one path to revalidate, not one per id.
   revalidatePath("/reviewer");
-  revalidatePath("/submissions");
-  revalidatePath(`/submissions/${submissionId}`);
+  revalidatePath("/submitter/submissions");
+  revalidatePath("/submitter/submissions/id");
   redirect("/reviewer");
 }
 
 export async function dismissFlag(formData: FormData) {
   const flagId = Number(formData.get("flagId"));
-  const submissionId = Number(formData.get("submissionId"));
   const reasonCode = formData.get("reasonCode");
 
   if (typeof reasonCode !== "string" || !reasonCode) {
@@ -64,8 +65,10 @@ export async function dismissFlag(formData: FormData) {
     .where(eq(flags.id, flagId));
 
   // A dismissed flag also changes what the submitter sees on their own
-  // detail view of this submission.
-  revalidatePath(`/reviewer/${submissionId}`);
+  // detail view of this submission. Both detail routes are single static
+  // paths now (id is a query param), so one revalidatePath call each covers
+  // every submission, not just this one.
+  revalidatePath("/reviewer/id");
   revalidatePath("/reviewer");
-  revalidatePath(`/submissions/${submissionId}`);
+  revalidatePath("/submitter/submissions/id");
 }
