@@ -80,6 +80,12 @@ Current rule coverage includes:
 - FTC free-claim and unsubstantiated-superlative checks.
 - Mortgage-specific Equal Housing, NMLS, and government-affiliation checks.
 
+### Policies 
+
+The Policies tab on the Reviewer view is in draft status. The table displays all the active compliance policies
+currently used by the rules engine to review the request before human-review. Any modifications to the policies
+(disabling, modifying, or creating) would be barred to admin users.  
+
 ## Architecture Overview
 
 Stack:
