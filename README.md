@@ -56,7 +56,8 @@ The feature set targets the highest-friction parts of the current workflow.
 ### Reviewer
 
 - Work from a queue split into active review items and decided items.
-- Automatically prioritize active review items by highest flag severity first.
+- Order the active review queue by time in queue (oldest first), with severity
+  shown on each row for triage.
 - Open a review detail page with inline highlighted text spans.
 - Review rule flags with citations, severity, and messages.
 - Approve, reject, request changes, or dismiss false-positive flags.
@@ -80,11 +81,18 @@ Current rule coverage includes:
 - FTC free-claim and unsubstantiated-superlative checks.
 - Mortgage-specific Equal Housing, NMLS, and government-affiliation checks.
 
-### Policies 
+### Policies
 
-The Policies tab on the Reviewer view is in draft status. The table displays all the active compliance policies
-currently used by the rules engine to review the request before human-review. Any modifications to the policies
-(disabling, modifying, or creating) would be barred to admin users.  
+The Policies tab on the Reviewer view (`/reviewer/policies`) displays every policy
+currently checked by the rules engine as a table of clearly-formatted rows (name,
+regulation, severity, product scope, and active status). Admin users can:
+
+- **Disable / enable** a policy — toggling it off makes the engine skip that rule
+  on new submissions.
+- **Create a new policy** — adds a policy row from the form. Note: because rules
+  are compiled TypeScript, a newly created policy is tracked but not yet enforced
+  (shown with a "Not wired to engine" badge) until a matching rule is added to
+  `src/rules/rules.ts`.
 
 ## Architecture Overview
 
@@ -116,7 +124,7 @@ Data flow:
 2. The server action writes a submission and initial immutable version.
 3. The rules engine scans the submitted text and stores flags tied to that
    version.
-4. Reviewers see the item in the queue, ordered by severity.
+4. Reviewers see the item in the queue, ordered by time in queue.
 5. A reviewer makes a decision and may dismiss individual flags with reasons.
 6. If changes are requested, the submitter can resubmit; the app creates a new
    version and reruns the rules.
@@ -188,6 +196,27 @@ Key fields:
 - `reason_codes`
 - `notes`
 - `created_at`
+
+### `policies`
+
+Admin-facing catalog of every policy/rule the engine currently checks. It is the
+display layer for the compiled rules in `src/rules/rules.ts` — the engine is the
+source of truth, and the table is rebuilt from it (see `src/db/policies-data.ts`)
+so the admin view always reflects exactly what the engine checks. The `active`
+flag determines whether the engine fires the rule on new submissions: disabling a
+policy makes the engine skip it (the submit/resubmit flow fetches disabled rule
+ids via `getDisabledRuleIds()` and passes them to `runRules`).
+
+Key fields:
+
+- `rule_id` (unique) — matches a rule id in `src/rules/rules.ts`
+- `name` — human-readable policy name
+- `regulation` — the legal/regulatory citation
+- `severity` — `low` | `medium` | `high`
+- `product_scope` — which products it applies to (e.g. `all products`, `mortgage`)
+- `description` — plain-English explanation of what the policy flags
+- `active` — whether the engine currently enforces the rule
+- `created_at`, `updated_at`
 
 ## Running Locally
 
@@ -275,5 +304,5 @@ state law, and supervisory guidance and mark affected rules for compliance revie
 compliance leads review and approve updates before a new rule version becomes active. Because flags retain the exact rule 
 version that generated them, the system preserves a defensible audit trail and can selectively re-evaluate active submissions 
 when underlying guidance changes.
-- **Smarter Queue Ordering:** in the current implementation the queue ordering is based on time in queue, but in the future 
-the ordering could be based off multiple fields such as time in queue, severity level, and priority set by marketing team.
+- **Smarter Queue Ordering:** the queue is currently ordered by time in queue. A future enhancement
+could base ordering on multiple fields such as time in queue, severity level, and priority set by the marketing team.
