@@ -39,6 +39,12 @@ const SEVERITY_OPTIONS = [
   { value: "high", label: "High" },
 ] as const;
 
+const STATUS_LABELS: Record<string, string> = {
+  approved: "Approved",
+  changes_requested: "Changes requested",
+  rejected: "Rejected",
+};
+
 export function DecidedTable({ rows }: { rows: QueueItem[] }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -99,21 +105,31 @@ export function DecidedTable({ rows }: { rows: QueueItem[] }) {
             Decided ({filteredRows.length} of {rows.length})
           </h2>
         </div>
-        {hasActiveFilters && (
+        <div className="flex flex-wrap gap-3">
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setStatus("all");
+                setProduct("all");
+                setSource("all");
+                setSeverity("all");
+              }}
+              className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+            >
+              Clear filters
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => {
-              setSearch("");
-              setStatus("all");
-              setProduct("all");
-              setSource("all");
-              setSeverity("all");
-            }}
-            className="self-start text-sm font-medium text-blue-600 hover:underline dark:text-blue-400 sm:self-auto"
+            onClick={() => exportDecidedRows(filteredRows)}
+            disabled={filteredRows.length === 0}
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
           >
-            Clear filters
+            Export CSV
           </button>
-        )}
+        </div>
       </div>
 
       <div className="mt-3 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/40 md:grid-cols-5">
@@ -144,6 +160,53 @@ export function DecidedTable({ rows }: { rows: QueueItem[] }) {
       )}
     </section>
   );
+}
+
+function exportDecidedRows(rows: QueueItem[]) {
+  const headers = [
+    "Submission ID",
+    "Title",
+    "Status",
+    "Product",
+    "Source",
+    "Affiliate",
+    "Submitter",
+    "Flag Count",
+    "Max Severity",
+    "Submitted Date",
+    "Review URL",
+  ];
+  const origin = window.location.origin;
+  const csvRows = rows.map((row) => [
+    row.id,
+    row.title,
+    STATUS_LABELS[row.status] ?? row.status,
+    PRODUCT_LABELS[row.productType] ?? row.productType,
+    row.source === "affiliate" ? "Affiliate" : "Internal",
+    row.affiliateName ?? "",
+    row.submittedBy,
+    row.activeFlagCount,
+    row.maxSeverity ?? "none",
+    new Date(row.createdAt).toLocaleDateString(),
+    `${origin}/reviewer/id?id=${row.id}`,
+  ]);
+  const csv = [headers, ...csvRows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const dateStamp = new Date().toISOString().slice(0, 10);
+
+  link.href = url;
+  link.download = `decided-submissions-${dateStamp}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(value: number | string) {
+  const text = String(value);
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 function FilterSelect({
