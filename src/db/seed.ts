@@ -1,8 +1,9 @@
 import "dotenv/config";
 import { db } from "./index";
-import { submissions, submissionVersions, flags, reviews } from "./schema";
+import { submissions, submissionVersions, flags, reviews, policies } from "./schema";
 import { SUBMISSIONS } from "./seed-data";
 import { runRules } from "../rules";
+import { buildPolicyRows } from "./policies-data";
 
 const NOW = new Date();
 
@@ -16,10 +17,17 @@ function hoursAfter(date: Date, hours: number): Date {
 
 async function seed() {
   console.log("Clearing existing data...");
-  await db.delete(reviews);
   await db.delete(flags);
-  await db.delete(submissionVersions);
+  await db.delete(reviews);
   await db.delete(submissions);
+  await db.delete(submissionVersions);
+  await db.delete(policies);
+
+  // Rebuild the policy catalog from the engine's rule list so the admin view
+  // always matches what the engine currently checks.
+  const policyRows = buildPolicyRows();
+  await db.insert(policies).values(policyRows);
+  console.log(`Seeded ${policyRows.length} policies from the rule engine.`);
 
   for (const def of SUBMISSIONS) {
     const lastVersion = def.versions[def.versions.length - 1];

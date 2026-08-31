@@ -7,7 +7,6 @@ import { DecidedTable } from "./decided-table";
 export const dynamic = "force-dynamic";
 
 const NEEDS_REVIEW = new Set(["pending", "in_review"]);
-const SEVERITY_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
 const PRODUCT_LABELS: Record<string, string> = {
   personal_loan: "Personal loan",
@@ -15,17 +14,22 @@ const PRODUCT_LABELS: Record<string, string> = {
   mortgage: "Mortgage",
 };
 
+// Human-readable elapsed time since the submission entered the queue.
+function timeInQueue(createdAt: Date): string {
+  const ms = Date.now() - createdAt.getTime();
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60}m`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ${hours % 24}h`;
+}
+
 export default async function ReviewerQueuePage() {
   const queue = await getQueue();
   const needsReview = queue
     .filter((s) => NEEDS_REVIEW.has(s.status))
-    .sort((a, b) => {
-      const severityDelta =
-        (SEVERITY_RANK[b.maxSeverity ?? ""] ?? 0) -
-        (SEVERITY_RANK[a.maxSeverity ?? ""] ?? 0);
-
-      return severityDelta || a.createdAt.getTime() - b.createdAt.getTime();
-    });
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   const decided = queue.filter((s) => !NEEDS_REVIEW.has(s.status));
   const highSeverityCount = needsReview.filter((s) => s.maxSeverity === "high").length;
 
@@ -78,7 +82,7 @@ function QueueTable({
                 <th className="px-4 py-2 font-medium">Source</th>
                 <th className="px-4 py-2 font-medium">Flags</th>
                 <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Submitted</th>
+                <th className="px-4 py-2 font-medium">Time in queue</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
@@ -108,7 +112,7 @@ function QueueTable({
                     <StatusBadge status={s.status} />
                   </td>
                   <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
-                    {s.createdAt.toLocaleDateString()}
+                    <span title={s.createdAt.toLocaleString()}>{timeInQueue(s.createdAt)}</span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link

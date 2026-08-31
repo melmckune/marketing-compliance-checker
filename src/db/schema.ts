@@ -151,6 +151,33 @@ export const flags = pgTable(
   ]
 );
 
+// Admin-facing catalog of every policy/rule the engine currently checks.
+// Mirrors the rule definitions in src/rules/rules.ts and is kept in sync from
+// that source of truth (see src/db/policies-data.ts). One row per rule id.
+export const policies = pgTable(
+  "policies",
+  {
+    id: serial("id").primaryKey(),
+    ruleId: text("rule_id").notNull().unique(),
+    name: text("name").notNull(),
+    regulation: text("regulation").notNull(),
+    severity: severityEnum("severity").notNull(),
+    productScope: text("product_scope").notNull().default("all products"),
+    description: text("description").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("policies_rule_id_idx").on(table.ruleId),
+    index("policies_active_idx").on(table.active),
+  ]
+);
+
 // One decision event on one specific submission_version.
 export const reviews = pgTable(
   "reviews",

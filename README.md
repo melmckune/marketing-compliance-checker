@@ -269,3 +269,5 @@ state law, and supervisory guidance and mark affected rules for compliance revie
 compliance leads review and approve updates before a new rule version becomes active. Because flags retain the exact rule 
 version that generated them, the system preserves a defensible audit trail and can selectively re-evaluate active submissions 
 when underlying guidance changes.
+- **Smarter Queue Ordering:** in the current implementation the queue ordering is based on time in queue, but in the future 
+the ordering could be based off multiple fields such as time in queue, severity level, and priority set by marketing team.

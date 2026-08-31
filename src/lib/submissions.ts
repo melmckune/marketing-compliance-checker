@@ -11,6 +11,7 @@ import { runRules } from "@/rules";
 import type { EngineFlag } from "@/rules";
 import { CURRENT_SUBMITTER } from "@/lib/current-user";
 import { RESUBMITTABLE_STATUSES } from "@/lib/labels";
+import { getDisabledRuleIds } from "@/db/queries";
 
 type Version = { id: number; versionNumber: number };
 
@@ -99,7 +100,9 @@ export async function createSubmission(input: NewSubmissionInput) {
     })
     .returning();
 
-  const engineFlags = runRules(input.content, { productType: input.productType });
+  const engineFlags = runRules(input.content, { productType: input.productType }, {
+    excludedRuleIds: await getDisabledRuleIds(),
+  });
   await insertFlagsForVersion(submission.id, version.id, engineFlags);
 
   return submission;
@@ -147,9 +150,11 @@ export async function resubmitSubmission(submissionId: number, input: ResubmitIn
     })
     .where(eq(submissions.id, submissionId));
 
-  const engineFlags = runRules(input.content, {
-    productType: submission.productType,
-  });
+  const engineFlags = runRules(
+    input.content,
+    { productType: submission.productType },
+    { excludedRuleIds: await getDisabledRuleIds() }
+  );
   await insertFlagsForVersion(submissionId, version.id, engineFlags);
 }
 

@@ -1,11 +1,21 @@
 import { eq } from "drizzle-orm";
 import { db } from "./index";
-import { flags, submissions } from "./schema";
+import { flags, policies, submissions } from "./schema";
 import type { Severity } from "@/rules/types";
 
 const SEVERITY_RANK: Record<Severity, number> = { high: 3, medium: 2, low: 1 };
 
 const NEEDS_REVIEW_STATUSES = new Set(["pending", "in_review"]);
+
+/** Rule ids that an admin has disabled via the policies table — the engine
+ *  should skip these when flagging new submissions. */
+export async function getDisabledRuleIds(): Promise<Set<string>> {
+  const rows = await db.query.policies.findMany({
+    where: eq(policies.active, false),
+    columns: { ruleId: true },
+  });
+  return new Set(rows.map((r) => r.ruleId));
+}
 
 export async function getQueue() {
   const rows = await db.query.submissions.findMany({
