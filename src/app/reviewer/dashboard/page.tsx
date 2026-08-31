@@ -10,10 +10,6 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
       <h1 className="text-2xl font-semibold">Dashboard</h1>
-      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-        Most elapsed time in the old process was queue time and round-trip time, not review
-        time — this is what removing them actually looks like.
-      </p>
 
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <MetricCard label="Median time to decision" hint="Submission to first decision">
@@ -60,7 +56,7 @@ export default async function DashboardPage() {
           )}
         </MetricCard>
 
-        <MetricCard label="Open queue" hint="What compliance can't see today, in an inbox">
+        <MetricCard label="Open queue">
           <div className="text-3xl font-semibold">{metrics.openQueueDepth}</div>
           <p className="text-xs text-slate-500 dark:text-slate-400">pending review</p>
           <p className="mt-4 text-sm">
@@ -78,10 +74,6 @@ export default async function DashboardPage() {
         <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
           Top violations
         </h2>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Active flags by rule — a rule that dominates this list is a template or training
-          problem upstream, not a review-speed problem.
-        </p>
         <div className="mt-4 space-y-3">
           {metrics.topViolations.length === 0 ? (
             <EmptyStat text="No active flags." />
@@ -113,10 +105,6 @@ export default async function DashboardPage() {
         <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
           Per-affiliate scorecard
         </h2>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Which partners create legal exposure — rejection rate and repeat violations, at a
-          glance.
-        </p>
         {metrics.affiliateScorecard.length === 0 ? (
           <div className="mt-4">
             <EmptyStat text="No affiliate submissions yet." />
