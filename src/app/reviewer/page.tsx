@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { getQueue } from "@/db/queries";
 import { SeverityBadge, StatusBadge } from "@/components/badges";
+import { DecidedTable } from "./decided-table";
 
 // Live operational queue — never serve a stale build-time snapshot.
 export const dynamic = "force-dynamic";
 
 const NEEDS_REVIEW = new Set(["pending", "in_review"]);
+const SEVERITY_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
 const PRODUCT_LABELS: Record<string, string> = {
   personal_loan: "Personal loan",
@@ -15,7 +17,15 @@ const PRODUCT_LABELS: Record<string, string> = {
 
 export default async function ReviewerQueuePage() {
   const queue = await getQueue();
-  const needsReview = queue.filter((s) => NEEDS_REVIEW.has(s.status));
+  const needsReview = queue
+    .filter((s) => NEEDS_REVIEW.has(s.status))
+    .sort((a, b) => {
+      const severityDelta =
+        (SEVERITY_RANK[b.maxSeverity ?? ""] ?? 0) -
+        (SEVERITY_RANK[a.maxSeverity ?? ""] ?? 0);
+
+      return severityDelta || a.createdAt.getTime() - b.createdAt.getTime();
+    });
   const decided = queue.filter((s) => !NEEDS_REVIEW.has(s.status));
   const highSeverityCount = needsReview.filter((s) => s.maxSeverity === "high").length;
 
@@ -36,7 +46,7 @@ export default async function ReviewerQueuePage() {
 
       <QueueTable title="Needs review" rows={needsReview} emptyText="Nothing waiting — queue is clear." />
       {decided.length > 0 && (
-        <QueueTable title="Decided" rows={decided} emptyText="" />
+        <DecidedTable rows={decided} />
       )}
     </div>
   );

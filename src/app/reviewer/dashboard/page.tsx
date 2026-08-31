@@ -56,7 +56,7 @@ export default async function DashboardPage() {
           )}
         </MetricCard>
 
-        <MetricCard label="Open queue">
+        <MetricCard label="Open queue" hint="Pending and in-review cases">
           <div className="text-3xl font-semibold">{metrics.openQueueDepth}</div>
           <p className="text-xs text-slate-500 dark:text-slate-400">pending review</p>
           <p className="mt-4 text-sm">
@@ -69,6 +69,14 @@ export default async function DashboardPage() {
           </p>
         </MetricCard>
       </div>
+
+      <QueueHealthWidget
+        status={metrics.queueHealth.status}
+        openQueueDepth={metrics.openQueueDepth}
+        pendingCount={metrics.queueHealth.pendingCount}
+        inReviewCount={metrics.queueHealth.inReviewCount}
+        oldestPendingHours={metrics.oldestPendingHours}
+      />
 
       <section className="mt-10">
         <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
@@ -92,9 +100,6 @@ export default async function DashboardPage() {
                     style={{ width: `${Math.max(v.percentage, 2)}%` }}
                   />
                 </div>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  {v.regulation}
-                </p>
               </div>
             ))
           )}
@@ -144,6 +149,80 @@ export default async function DashboardPage() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function QueueHealthWidget({
+  status,
+  openQueueDepth,
+  pendingCount,
+  inReviewCount,
+  oldestPendingHours,
+}: {
+  status: "healthy" | "watch" | "backed_up";
+  openQueueDepth: number;
+  pendingCount: number;
+  inReviewCount: number;
+  oldestPendingHours: number | null;
+}) {
+  const statusCopy = {
+    healthy: {
+      label: "Queue healthy",
+      summary: "Open review volume is inside the operating range.",
+      classes:
+        "border-green-200 bg-green-50 text-green-900 dark:border-green-900/60 dark:bg-green-950/30 dark:text-green-100",
+      dot: "bg-green-500",
+    },
+    watch: {
+      label: "Queue watch",
+      summary: "Review volume is close to the backup threshold.",
+      classes:
+        "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100",
+      dot: "bg-amber-500",
+    },
+    backed_up: {
+      label: "Queue backed up",
+      summary: "Open review volume has crossed at least one backup rule.",
+      classes:
+        "border-red-200 bg-red-50 text-red-950 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-100",
+      dot: "bg-red-500",
+    },
+  }[status];
+
+  return (
+    <section className={`mt-8 rounded-lg border p-5 ${statusCopy.classes}`}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${statusCopy.dot}`} />
+            <h2 className="text-sm font-semibold tracking-wide uppercase">
+              {statusCopy.label}
+            </h2>
+          </div>
+          <p className="mt-2 text-sm">{statusCopy.summary}</p>
+        </div>
+
+        <div className="grid min-w-full grid-cols-2 gap-3 text-sm sm:min-w-80 sm:grid-cols-4">
+          <QueueHealthStat label="Open" value={openQueueDepth} />
+          <QueueHealthStat label="Pending" value={pendingCount} />
+          <QueueHealthStat label="In review" value={inReviewCount} />
+          <QueueHealthStat
+            label="Oldest"
+            value={oldestPendingHours === null ? "none" : formatDuration(oldestPendingHours)}
+          />
+        </div>
+      </div>
+
+    </section>
+  );
+}
+
+function QueueHealthStat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div>
+      <p className="text-xs opacity-70">{label}</p>
+      <p className="mt-0.5 text-lg font-semibold">{value}</p>
     </div>
   );
 }

@@ -8,6 +8,15 @@ import type { Severity } from "@/rules/types";
 export const BASELINE_MEDIAN_HOURS = 24 * 10; // 10 days
 export const BASELINE_ROUND_TRIPS = 3;
 
+const QUEUE_HEALTH_RULES = {
+  watchOpenCases: 5,
+  backedUpOpenCases: 8,
+  watchPendingCases: 3,
+  backedUpPendingCases: 5,
+  watchOldestHours: 24,
+  backedUpOldestHours: 48,
+} as const;
+
 function median(values: number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -76,11 +85,55 @@ export async function getDashboardMetrics() {
 
   // --- Open queue depth and age ---
   const pending = allSubmissions.filter((s) => NEEDS_REVIEW_STATUSES.has(s.status));
+  const pendingCount = allSubmissions.filter((s) => s.status === "pending").length;
+  const inReviewCount = allSubmissions.filter((s) => s.status === "in_review").length;
   const now = Date.now();
   const oldestPendingHours =
     pending.length > 0
       ? Math.max(...pending.map((s) => (now - s.createdAt.getTime()) / (1000 * 60 * 60)))
       : null;
+
+  const queueReasons: string[] = [];
+  const queueIsBackedUp =
+    pending.length >= QUEUE_HEALTH_RULES.backedUpOpenCases ||
+    pendingCount >= QUEUE_HEALTH_RULES.backedUpPendingCases ||
+    (oldestPendingHours ?? 0) >= QUEUE_HEALTH_RULES.backedUpOldestHours;
+  const queueNeedsWatch =
+    pending.length >= QUEUE_HEALTH_RULES.watchOpenCases ||
+    pendingCount >= QUEUE_HEALTH_RULES.watchPendingCases ||
+    (oldestPendingHours ?? 0) >= QUEUE_HEALTH_RULES.watchOldestHours;
+
+  if (pending.length >= QUEUE_HEALTH_RULES.backedUpOpenCases) {
+    queueReasons.push(`${pending.length} open cases is at or above the ${QUEUE_HEALTH_RULES.backedUpOpenCases}-case backup limit`);
+  } else if (pending.length >= QUEUE_HEALTH_RULES.watchOpenCases) {
+    queueReasons.push(`${pending.length} open cases is above the ${QUEUE_HEALTH_RULES.watchOpenCases}-case watch line`);
+  }
+
+  if (pendingCount >= QUEUE_HEALTH_RULES.backedUpPendingCases) {
+    queueReasons.push(`${pendingCount} pending cases have not been picked up yet`);
+  } else if (pendingCount >= QUEUE_HEALTH_RULES.watchPendingCases) {
+    queueReasons.push(`${pendingCount} pending cases are waiting for reviewer pickup`);
+  }
+
+  if ((oldestPendingHours ?? 0) >= QUEUE_HEALTH_RULES.backedUpOldestHours) {
+    queueReasons.push(`oldest open case is at least ${QUEUE_HEALTH_RULES.backedUpOldestHours} hours old`);
+  } else if ((oldestPendingHours ?? 0) >= QUEUE_HEALTH_RULES.watchOldestHours) {
+    queueReasons.push(`oldest open case is at least ${QUEUE_HEALTH_RULES.watchOldestHours} hours old`);
+  }
+
+  const queueStatus: "healthy" | "watch" | "backed_up" = queueIsBackedUp
+    ? "backed_up"
+    : queueNeedsWatch
+      ? "watch"
+      : "healthy";
+
+  const queueHealth = {
+    status: queueStatus,
+    rules: QUEUE_HEALTH_RULES,
+    reasons: queueReasons,
+    pendingCount,
+    inReviewCount,
+  };
 
   // --- Top violations (active flags only — a dismissed flag was judged not a real issue) ---
   const violationCounts = new Map<
@@ -155,6 +208,7 @@ export async function getDashboardMetrics() {
     baselineRoundTrips: BASELINE_ROUND_TRIPS,
     openQueueDepth: pending.length,
     oldestPendingHours,
+    queueHealth,
     topViolations,
     affiliateScorecard,
   };
