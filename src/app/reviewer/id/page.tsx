@@ -5,6 +5,7 @@ import { getSubmissionForReview } from "@/db/queries";
 import { DecisionForm } from "./decision-form";
 import { FlagList } from "./flag-list";
 import { HighlightedContent } from "./highlighted-content";
+import { VersionHistory } from "./version-history";
 
 // Reading searchParams already opts this route out of static rendering, but
 // force-dynamic is kept explicit — see the same note on reviewer/page.tsx.
@@ -79,28 +80,9 @@ export default async function ReviewPage({
           <h2 className="text-sm font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
             Version history
           </h2>
-          <ul className="mt-3 space-y-2">
-            {[...submission.versions].reverse().map((v) => (
-              <li
-                key={v.id}
-                className="rounded border border-slate-200 p-3 text-sm dark:border-slate-800"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">
-                    v{v.versionNumber}: {v.title}
-                  </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {v.createdAt.toLocaleDateString()}
-                  </span>
-                </div>
-                {v.changeSummary && (
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {v.changeSummary}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
+          <div className="mt-3">
+            <VersionHistory versions={submission.versions} />
+          </div>
         </section>
       )}
 
