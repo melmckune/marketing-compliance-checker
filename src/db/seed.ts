@@ -1,6 +1,8 @@
+import "dotenv/config";
 import { db } from "./index";
 import { submissions, submissionVersions, flags, reviews } from "./schema";
-import { SUBMISSIONS, locate } from "./seed-data";
+import { SUBMISSIONS } from "./seed-data";
+import { runRules } from "../rules";
 
 async function seed() {
   console.log("Clearing existing data...");
@@ -43,10 +45,26 @@ async function seed() {
         })
         .returning();
 
-      if (versionDef.flags?.length) {
+      const engineFlags = runRules(versionDef.content, {
+        productType: def.productType,
+      });
+
+      // Each dismissFlags entry dismisses the first not-yet-dismissed flag
+      // with a matching ruleId. Track consumption so a stale/typo'd ruleId
+      // in seed data fails loudly instead of silently doing nothing.
+      const pendingDismissals = [...(versionDef.dismissFlags ?? [])];
+
+      if (engineFlags.length > 0) {
         await db.insert(flags).values(
-          versionDef.flags.map((f) => {
-            const { start, end } = locate(versionDef.content, f.matchText);
+          engineFlags.map((f) => {
+            const dismissalIndex = pendingDismissals.findIndex(
+              (d) => d.ruleId === f.ruleId
+            );
+            const dismissal =
+              dismissalIndex === -1
+                ? undefined
+                : pendingDismissals.splice(dismissalIndex, 1)[0];
+
             return {
               submissionId: submission.id,
               submissionVersionId: version.id,
@@ -54,14 +72,22 @@ async function seed() {
               severity: f.severity,
               regulation: f.regulation,
               message: f.message,
-              startOffset: start,
-              endOffset: end,
-              dismissed: Boolean(f.dismissed),
-              dismissedReason: f.dismissed?.reason,
-              dismissedBy: f.dismissed?.by,
-              dismissedAt: f.dismissed ? new Date() : undefined,
+              startOffset: f.startOffset,
+              endOffset: f.endOffset,
+              dismissed: Boolean(dismissal),
+              dismissedReason: dismissal?.reason,
+              dismissedBy: dismissal?.by,
+              dismissedAt: dismissal ? new Date() : undefined,
             };
           })
+        );
+      }
+
+      if (pendingDismissals.length > 0) {
+        throw new Error(
+          `Seed data error: dismissFlags on "${versionDef.title}" referenced rule(s) [${pendingDismissals
+            .map((d) => d.ruleId)
+            .join(", ")}] that the engine never flagged for this content.`
         );
       }
 
@@ -77,7 +103,9 @@ async function seed() {
       }
     }
 
-    console.log(`Seeded submission #${submission.id}: ${lastVersion.title}`);
+    console.log(
+      `Seeded submission #${submission.id}: ${lastVersion.title}`
+    );
   }
 
   console.log(`Done. Seeded ${SUBMISSIONS.length} submissions.`);

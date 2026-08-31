@@ -1,20 +1,13 @@
 // ---------------------------------------------------------------------------
-// Seed data. The rules engine itself isn't built yet, so the flags below are
-// hand-authored to look like what it will eventually produce: severity,
-// regulation citation, human message, and a `matchText` that seed.ts resolves
-// to exact character offsets via indexOf against the version's actual content
-// (so highlighting is always correct, even if copy changes). This file has no
-// database dependency, so `verify-seed-data.ts` can sanity-check it standalone.
+// Seed data. Flags are NOT hand-authored here — seed.ts runs the real rules
+// engine (src/rules) against each version's `content` at seed time, so what
+// ends up in the `flags` table is exactly what the product would produce.
+// This file only supplies the ad copy, who submitted it, and the human
+// layer the engine can't produce on its own: reviewer decisions and which
+// engine-generated flag (if any) a reviewer dismissed as a false positive.
+// No database dependency, so `verify-seed-data.ts` can sanity-check it
+// standalone against the engine.
 // ---------------------------------------------------------------------------
-
-export type FlagDef = {
-  ruleId: string;
-  severity: "low" | "medium" | "high";
-  regulation: string;
-  message: string;
-  matchText: string;
-  dismissed?: { reason: string; by: string };
-};
 
 export type ReviewDef = {
   reviewer: string;
@@ -23,12 +16,19 @@ export type ReviewDef = {
   notes?: string;
 };
 
+export type DismissSpec = {
+  /** Dismisses the first engine-produced flag on this version with a matching ruleId. */
+  ruleId: string;
+  reason: string;
+  by: string;
+};
+
 export type VersionDef = {
   title: string;
   content: string;
   changeSummary?: string;
   createdBy: string;
-  flags?: FlagDef[];
+  dismissFlags?: DismissSpec[];
   review?: ReviewDef;
 };
 
@@ -50,7 +50,7 @@ export type SubmissionDef = {
 export const ANALYST = "compliance-analyst@clearpathfinancial.com";
 
 export const SUBMISSIONS: SubmissionDef[] = [
-  // 1. Clean, internal, personal loan email — nothing to flag.
+  // 1. Clean, internal, personal loan email — engine produces no flags.
   {
     productType: "personal_loan",
     channel: "email",
@@ -97,7 +97,9 @@ export const SUBMISSIONS: SubmissionDef[] = [
     ],
   },
 
-  // 3. Borderline: rate range with no representative example.
+  // 3. Borderline: rate stated without APR terminology or a representative
+  //    example. Engine produces two flags (representative_example_required,
+  //    apr_term_required) — same underlying issue, two disclosure gaps.
   {
     productType: "credit_card",
     channel: "social",
@@ -110,28 +112,18 @@ export const SUBMISSIONS: SubmissionDef[] = [
         createdBy: "marcus.lee@clearpathfinancial.com",
         content:
           "Introducing the ClearPath Rewards Card. Rates as low as 14.99% for qualified applicants. Earn 2% cash back on every purchase, no annual fee. Terms and conditions apply.",
-        flags: [
-          {
-            ruleId: "representative_example_required",
-            severity: "medium",
-            regulation:
-              "Reg Z / TILA – 12 CFR § 1026.16(b)(1) representative example",
-            message:
-              "A rate range or 'as low as' rate is advertised without a representative example showing a typical APR, fee, and repayment term.",
-            matchText: "Rates as low as 14.99%",
-          },
-        ],
         review: {
           reviewer: ANALYST,
           decision: "changes_requested",
-          reasonCodes: ["missing_representative_example"],
-          notes: "Please add a representative example next to the rate claim.",
+          reasonCodes: ["missing_representative_example", "missing_apr_disclosure"],
+          notes:
+            "Rate claim needs the 'Annual Percentage Rate' term and a representative example before this can run.",
         },
       },
     ],
   },
 
-  // 4. The showcase affiliate email: trips five rules at once, then a clean
+  // 4. The showcase affiliate email: trips seven flags at once, then a clean
   //    resubmit. Demonstrates multi-flag review, round-trip, and that flags
   //    stay pinned to the version that earned them.
   {
@@ -147,51 +139,6 @@ export const SUBMISSIONS: SubmissionDef[] = [
         createdBy: "priya.shah@clearpathfinancial.com",
         content:
           "GUARANTEED APPROVAL! Rates as low as 5.99% — pre-approved, no credit check! Apply now, this offer won't last. Get your cash today.",
-        flags: [
-          {
-            ruleId: "guaranteed_approval_claim",
-            severity: "high",
-            regulation:
-              "UDAAP / FTC Act §5 — deceptive claim; no approval is guaranteed prior to underwriting",
-            message:
-              "Ad guarantees approval, which is never true prior to underwriting and is a deceptive claim.",
-            matchText: "GUARANTEED APPROVAL",
-          },
-          {
-            ruleId: "apr_term_required",
-            severity: "high",
-            regulation:
-              "Reg Z / TILA — 12 CFR § 1026.24(d) — stating a rate requires the term 'Annual Percentage Rate'",
-            message:
-              "A rate is stated without using the required term 'Annual Percentage Rate' and without a representative example.",
-            matchText: "Rates as low as 5.99%",
-          },
-          {
-            ruleId: "preapproved_without_firm_offer",
-            severity: "high",
-            regulation:
-              "FCRA § 604(c) — firm offer of credit required to use 'pre-approved'",
-            message:
-              "'Pre-approved' implies a firm offer of credit under FCRA; nothing in the record establishes a qualifying firm offer.",
-            matchText: "pre-approved",
-          },
-          {
-            ruleId: "no_credit_check_claim",
-            severity: "medium",
-            regulation: "UDAAP — unsubstantiated claim likely to mislead",
-            message:
-              "'No credit check' is a claim compliance cannot substantiate for this product and is commonly used to bait unqualified applicants.",
-            matchText: "no credit check",
-          },
-          {
-            ruleId: "urgency_pressure_language",
-            severity: "medium",
-            regulation: "UDAAP — pressure tactics",
-            message:
-              "Urgency language pressures consumers into a quick decision on a credit product, a UDAAP risk factor.",
-            matchText: "Apply now, this offer won't last.",
-          },
-        ],
         review: {
           reviewer: ANALYST,
           decision: "changes_requested",
@@ -202,7 +149,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
             "pressure_language",
           ],
           notes:
-            "Five separate issues — guaranteed approval, missing APR terminology, unsupported pre-approved/no-credit-check claims, and urgency language. Needs a full rewrite before resubmission.",
+            "Multiple issues — guaranteed approval, missing APR terminology and representative example, unsupported pre-approved/no-credit-check claims, and urgency language. Needs a full rewrite before resubmission.",
         },
       },
       {
@@ -236,17 +183,6 @@ export const SUBMISSIONS: SubmissionDef[] = [
         createdBy: "priya.shah@clearpathfinancial.com",
         content:
           "Get prequalified for your dream home with ClearPath Financial. Competitive rates, fast decisions, and a simple online application. Start your prequalification today — no obligation.",
-        flags: [
-          {
-            ruleId: "missing_equal_housing_nmls",
-            severity: "high",
-            regulation:
-              "Reg N (12 CFR Part 1014) / NMLS disclosure requirements for mortgage advertising",
-            message:
-              "Mortgage advertisement is missing the required Equal Housing Lender designation and NMLS ID.",
-            matchText: "Start your prequalification today — no obligation.",
-          },
-        ],
         review: {
           reviewer: ANALYST,
           decision: "rejected",
@@ -262,6 +198,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
   },
 
   // 6. Borderline urgency language, still sitting in the queue (unreviewed).
+  //    Engine trips urgency_pressure_language three times in this one.
   {
     productType: "personal_loan",
     channel: "display",
@@ -274,21 +211,12 @@ export const SUBMISSIONS: SubmissionDef[] = [
         createdBy: "marcus.lee@clearpathfinancial.com",
         content:
           "Lock in your rate before it's too late! ClearPath Financial personal loans — apply now and get funded as soon as tomorrow. Limited time offer.",
-        flags: [
-          {
-            ruleId: "urgency_pressure_language",
-            severity: "low",
-            regulation: "UDAAP — pressure tactics",
-            message:
-              "Countdown/urgency framing may pressure consumers; consider softening 'before it's too late'.",
-            matchText: "Lock in your rate before it's too late!",
-          },
-        ],
       },
     ],
   },
 
-  // 7. False positive: "pre-qualified" used correctly, flag gets dismissed.
+  // 7. False positive: urgency language paired with an explicit no-pressure
+  //    alternative, so the reviewer dismisses the flag.
   {
     productType: "credit_card",
     channel: "email",
@@ -300,21 +228,13 @@ export const SUBMISSIONS: SubmissionDef[] = [
         title: "Pre-Qualified Email Campaign",
         createdBy: "jordan.ruiz@clearpathfinancial.com",
         content:
-          "You're pre-qualified to check your rate for the ClearPath Rewards Card with no impact to your credit score. See your personalized rate in 60 seconds — final approval is subject to full underwriting.",
-        flags: [
+          "You're pre-qualified to check your rate for the ClearPath Rewards Card with no impact to your credit score. Apply now or come back anytime — approval is subject to full underwriting and your final rate depends on creditworthiness.",
+        dismissFlags: [
           {
-            ruleId: "preapproved_without_firm_offer",
-            severity: "low",
-            regulation:
-              "FCRA § 604(c) — distinguish 'pre-qualified' (soft, no firm offer) from 'pre-approved' (requires firm offer)",
-            message:
-              "'Pre-qualified' language detected near a credit offer — flagged for reviewer confirmation that no firm-offer claim is implied.",
-            matchText: "pre-qualified",
-            dismissed: {
-              reason:
-                "Correctly uses 'pre-qualified' with proper soft-inquiry and underwriting caveats — not a firm offer claim. Not a violation.",
-              by: ANALYST,
-            },
+            ruleId: "urgency_pressure_language",
+            reason:
+              "'Apply now' is immediately paired with 'or come back anytime,' which removes the pressure — this doesn't read as a UDAAP violation. Dismissed as a false positive.",
+            by: ANALYST,
           },
         ],
         review: {
@@ -322,13 +242,14 @@ export const SUBMISSIONS: SubmissionDef[] = [
           decision: "approved",
           reasonCodes: ["meets_disclosure_requirements"],
           notes:
-            "Flagged term reviewed and dismissed as a false positive — copy correctly distinguishes pre-qualified from pre-approved.",
+            "Flagged urgency language reviewed and dismissed — copy explicitly offers a no-pressure alternative, so it doesn't function as a pressure tactic.",
         },
       },
     ],
   },
 
-  // 8. Prescreened credit card offer missing the FCRA opt-out notice.
+  // 8. Prescreened credit card offer missing the FCRA opt-out notice; also
+  //    trips apr_term_required since "APR" is never spelled out in full.
   {
     productType: "credit_card",
     channel: "email",
@@ -342,25 +263,16 @@ export const SUBMISSIONS: SubmissionDef[] = [
         createdBy: "priya.shah@clearpathfinancial.com",
         content:
           "Because of your excellent credit history, you've been selected for this prescreened offer for the ClearPath Rewards Card with a 0% introductory APR for 12 months. Respond by the date on the enclosed letter.",
-        flags: [
-          {
-            ruleId: "prescreen_optout_notice_missing",
-            severity: "high",
-            regulation:
-              "FCRA § 615(d) — prescreened offers require a clear and conspicuous opt-out notice",
-            message:
-              "This is a prescreened offer of credit but does not include the required FCRA opt-out notice.",
-            matchText: "you've been selected for this prescreened offer",
-          },
-        ],
         review: {
           reviewer: ANALYST,
           decision: "changes_requested",
           reasonCodes: [
             "missing_required_disclosure",
             "fcra_optout_notice_required",
+            "missing_apr_disclosure",
           ],
-          notes: "Add the FCRA prescreen opt-out notice before resubmitting.",
+          notes:
+            "Add the FCRA prescreen opt-out notice, and spell out 'Annual Percentage Rate' before resubmitting.",
         },
       },
     ],
@@ -403,34 +315,6 @@ export const SUBMISSIONS: SubmissionDef[] = [
         createdBy: "priya.shah@clearpathfinancial.com",
         content:
           "Check your eligibility for this official government home buyer assistance program, offered through ClearPath Financial. Get connected with a government-backed rate today.",
-        flags: [
-          {
-            ruleId: "implied_government_affiliation",
-            severity: "high",
-            regulation:
-              "Reg N (12 CFR Part 1014.3) — prohibition on implying government affiliation in mortgage advertising",
-            message:
-              "Ad implies government affiliation/endorsement that does not exist.",
-            matchText: "official government home buyer assistance program",
-          },
-          {
-            ruleId: "implied_government_affiliation",
-            severity: "medium",
-            regulation: "Reg N (12 CFR Part 1014.3)",
-            message:
-              "'Government-backed rate' further implies a government affiliation ClearPath does not have.",
-            matchText: "government-backed rate",
-          },
-          {
-            ruleId: "missing_equal_housing_nmls",
-            severity: "high",
-            regulation:
-              "Reg N (12 CFR Part 1014) / NMLS disclosure requirements for mortgage advertising",
-            message:
-              "Mortgage advertisement is missing the required Equal Housing Lender designation and NMLS ID.",
-            matchText: "Get connected with a government-backed rate today.",
-          },
-        ],
         review: {
           reviewer: ANALYST,
           decision: "rejected",
@@ -446,7 +330,7 @@ export const SUBMISSIONS: SubmissionDef[] = [
     ],
   },
 
-  // 11. Unsubstantiated superlative claim, still in the queue.
+  // 11. Unsubstantiated superlative claims, still in the queue.
   {
     productType: "credit_card",
     channel: "print",
@@ -459,18 +343,6 @@ export const SUBMISSIONS: SubmissionDef[] = [
         createdBy: "marcus.lee@clearpathfinancial.com",
         content:
           "The ClearPath Rewards Card offers unbeatable rates and the best rewards program on the market, guaranteed. Terms and conditions apply.",
-        flags: [
-          {
-            ruleId: "unsubstantiated_superlative_claim",
-            severity: "medium",
-            regulation:
-              "FTC Act §5 — unsubstantiated superlative/comparative claims",
-            message:
-              "'Unbeatable rates' and 'best rewards program... guaranteed' are unsubstantiated superlative claims compliance cannot support.",
-            matchText:
-              "unbeatable rates and the best rewards program on the market, guaranteed",
-          },
-        ],
       },
     ],
   },
@@ -489,17 +361,6 @@ export const SUBMISSIONS: SubmissionDef[] = [
         createdBy: "jordan.ruiz@clearpathfinancial.com",
         content:
           "Get a ClearPath Financial personal loan with monthly payments as low as $199. Apply today and get funded fast.",
-        flags: [
-          {
-            ruleId: "reg_z_triggering_terms",
-            severity: "high",
-            regulation:
-              "Reg Z / TILA — 12 CFR § 1026.24(d) triggering terms require downpayment, repayment terms, and APR disclosure",
-            message:
-              "Stating a specific payment amount ('$199') is a Reg Z triggering term that requires disclosure of downpayment (if any), repayment terms, and the Annual Percentage Rate.",
-            matchText: "monthly payments as low as $199",
-          },
-        ],
         review: {
           reviewer: ANALYST,
           decision: "changes_requested",
@@ -525,13 +386,3 @@ export const SUBMISSIONS: SubmissionDef[] = [
     ],
   },
 ];
-
-export function locate(content: string, matchText: string) {
-  const start = content.indexOf(matchText);
-  if (start === -1) {
-    throw new Error(
-      `Seed data error: could not find "${matchText}" in content: ${content.slice(0, 60)}...`
-    );
-  }
-  return { start, end: start + matchText.length };
-}
